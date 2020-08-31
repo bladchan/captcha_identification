@@ -156,3 +156,39 @@ def train_captcha():
 由上述结果可以看出，孤立噪点的剔除有利于验证码的识别，噪点对于特征提取是不利的，因为噪点会使得不同的字符存在相同特征的可能，这对于最后的识别是不利的，因此尽可能的对验证码图片进行处理是很有必要的。
 
 当然，该测试结果相较于V1.0的模型来说，准确率方面不占优势，因为验证码图像升级了，因此识别难度加大了，但对于自动化的应用来说影响不大，因为验证码出错可以继续获取新的验证码并识别，直到验证码正确为止。
+
+### 食用方法：
+
+目录下的randomforest.m文件为训练的模型文件，使用joblib库（较老版本的sklearn可能带有该库，目前该库是分离出sklearn的），使用函数将joblib导入，代码如下：
+
+```python
+import joblib
+...
+rf = joblib.load(model_path)  # 导入模型
+...
+result = rf.predict(characters_vector)  # 预测：输入为特征向量，输出为字符的ASCII码
+```
+
+使用前需要对验证码预处理，对验证码图像切割的每一个字符提取特征，然后用模型进行预测，得到预测的字符的ASCII码。循环四次，对验证码图像的每个字符进行预测，得到整个验证码的值。整体流程参考predict.py文件中的`predict_online`函数，函数部分如下：
+
+```python
+def predict_online(filepath):  # filepath: the path of captcha
+    model_path = "./randomforest.m"  # model path
+    rf = joblib.load(model_path)  # load model
+    crop_range = [(4, 0, 16, 22), (16, 0, 28, 22), (28, 0, 40, 22), (42, 0, 54, 22)]  # crop range
+    data = []  # characters vector
+    for i in range(4):  # captcha contains four chars
+        image = Image.open(filepath)  # open captcha image info
+        image = image.convert('L')  # 灰度处理
+        image = image.point(lambda x: 255 if x > 60 else 0)  # 二值化
+        image = image.crop(crop_range[i])  # 裁剪
+        image = RemoveNoise(image)  # 去噪
+        data.append(extract_characters(image)) # extract characters
+    data = np.array(data)  # list to np.array
+    result = rf.predict(data)  # predict
+    captcha_pre = ""
+    for i in range(4):
+        captcha_pre += chr(result[i])
+    return captcha_pre
+```
+
