@@ -1,6 +1,14 @@
-[TOC]
+# python机器学习识别正方教务系统验证码 V 2.0
 
-# python机器学习识别正方教务系统验证码
+### 起因
+
+教务系统网站的验证码升级，此次验证码链接包含有SafeKey标识码，并且与cookie想绑定，而且验证码链接地址只能打开一次，第二次打开默认返回空白。此外，验证码图像也进行了升级，噪点数目明显变多，虽然用上个版本的模型依旧能够识别，但准确率相对较低，因此重新抓取数据集并进行训练。
+
+如果验证码形下图左，则使用Version 1.0目录下的模型，否则使用本目录下的模型。
+
+
+
+![](https://www.bladchan.ml/assets/img/captcha1.jpg)![](https://www.bladchan.ml/assets/img/captcha4.png)
 
 ### 环境
 
@@ -24,9 +32,9 @@ sklearn库
 
 图片预处理：主要消除验证码图片的噪点，让图片的验证码清晰地显示以便提取相关特征。而正方教务系统的验证码主要包括一些噪点，没有其他曲线，而且字母和数字为深蓝色，并且没有很严重的变形，如下图所示。
 
-![](https://www.bladchan.ml/assets/img/captcha1.jpg)
+![](https://www.bladchan.ml/assets/img/captcha4.png)
 
-预处理与分割操作主要包括**灰度处理、二值化和裁剪**
+预处理与分割操作主要包括**灰度处理、二值化、去噪和裁剪**（相较于）
 
 灰度处理：主要将彩色图片变为灰度图片。彩色图片每个像素点包括rgb三层颜色，而灰度图片每个像素点只有一层颜色。直接使用Pillow库的相关函数即可将彩色图片变为灰度图片，代码如下：
 
@@ -38,7 +46,7 @@ image = image.convert('L')  # 灰度处理
 ...
 ```
 
-![](https://www.bladchan.ml/assets/img/captcha2.png)
+![](https://www.bladchan.ml/assets/img/captcha5.png)
 
 二值化：将灰度图片的每个像素点设置为0（黑）或者255（白）。此步骤主要是消除噪点，由上图的灰度图可以看到数字与字母部分颜色较深，其像素值更接近与0，而噪点的像素值与255更接近，因此存在一个阈值，用以划分该像素是噪点还是数字与字母部分。经过反复的测试，尽可能使得噪点变少，得到阈值为50。即将像素值大于50的直接设置为255（白），而小于等于50的直接设置为0（黑色），此所谓二值化（二值：0/255）。代码如下：
 
@@ -58,7 +66,25 @@ for i in range(4):
 ...
 ```
 
-![](https://www.bladchan.ml/assets/img/captcha3.png)
+![](https://www.bladchan.ml/assets/img/captcha6.png)
+
+去噪：将验证码字符外围孤立的点删除，唯一的不足是对边界处理的较为粗糙，并且对成块的噪点也没法剔除。
+
+```python
+def RemoveNoise(img):
+    width = img.width
+    height = img.height
+    for i in range(width):
+        for j in range(height):
+            pixel = img.getpixel((i, j))
+            if pixel == 255:
+                continue
+            else:
+                if img.getpixel(((i-1) % width, j)) == 255 and img.getpixel((i, (j-1) % height)) == 255 and \
+                        img.getpixel(((i+1) % width, j)) == 255 and img.getpixel((i, (j+1) % height)) == 255:
+                    img.putpixel((i, j), 255)
+    return img
+```
 
 ##### 2.机器学习训练验证码
 
@@ -111,6 +137,22 @@ def train_captcha():
 
 对测试集200个验证码进行测试，得到的正确率如下：
 
+(1).不去除噪点
+
 > Total: 200
-> correct 194
-> Accuracy: 0.97
+>
+> correct 164
+>
+> Accuracy: 0.82
+
+(2).去除噪点
+
+>Total: 200
+>
+>correct 170
+>
+>Accuracy: 0.85
+
+由上述结果可以看出，孤立噪点的剔除有利于验证码的识别，噪点对于特征提取是不利的，因为噪点会使得不同的字符存在相同特征的可能，这对于最后的识别是不利的，因此尽可能的对验证码图片进行处理是很有必要的。
+
+当然，该测试结果相较于V1.0的模型来说，准确率方面不占优势，因为验证码图像升级了，因此识别难度加大了，但对于自动化的应用来说影响不大，因为验证码出错可以继续获取新的验证码并识别，直到验证码正确为止。

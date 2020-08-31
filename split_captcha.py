@@ -2,6 +2,21 @@ from PIL import Image
 import os
 
 
+def RemoveNoise(img):
+    width = img.width
+    height = img.height
+    for i in range(width):
+        for j in range(height):
+            pixel = img.getpixel((i, j))
+            if pixel == 255:
+                continue
+            else:
+                if img.getpixel(((i-1) % width, j)) == 255 and img.getpixel((i, (j-1) % height)) == 255 and \
+                        img.getpixel(((i+1) % width, j)) == 255 and img.getpixel((i, (j+1) % height)) == 255:
+                    img.putpixel((i, j), 255)
+    return img
+
+
 if __name__ == '__main__':
     dirs = os.listdir("./traindataset")
     if not os.path.isdir("./train_classify"):
@@ -12,9 +27,10 @@ if __name__ == '__main__':
         captcha = f[:4]
         image = Image.open("./traindataset/" + f)
         image = image.convert('L')  # 灰度处理
-        image = image.point(lambda x: 255 if x > 50 else 0)  # 二值化
+        image = image.point(lambda x: 255 if x > 60 else 0)  # 二值化
         for i in range(4):
             image_t = image.crop(crop_range[i])  # 裁剪
+            image_t = RemoveNoise(image_t)
             c = captcha[i]
             if not os.path.isdir("./train_classify/" + c):
                 os.makedirs("./train_classify/" + c)

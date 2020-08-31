@@ -3,6 +3,7 @@ import os
 import numpy as np
 from PIL import Image
 from train import extract_characters
+from split_captcha import RemoveNoise
 
 
 def predict_captcha():
@@ -18,8 +19,9 @@ def predict_captcha():
         for i in range(4):
             image = Image.open("./testdataset/" + f)
             image = image.convert('L')  # 灰度处理
-            image = image.point(lambda x: 255 if x > 50 else 0)  # 二值化
+            image = image.point(lambda x: 255 if x > 60 else 0)  # 二值化
             image = image.crop(crop_range[i])  # 裁剪
+            image = RemoveNoise(image)  # 去噪
             data.append(extract_characters(image))
         data = np.array(data)
         result = rf.predict(data)
@@ -42,8 +44,9 @@ def predict_online(filepath):
     for i in range(4):
         image = Image.open(filepath)
         image = image.convert('L')  # 灰度处理
-        image = image.point(lambda x: 255 if x > 50 else 0)  # 二值化
+        image = image.point(lambda x: 255 if x > 60 else 0)  # 二值化
         image = image.crop(crop_range[i])  # 裁剪
+        image = RemoveNoise(image)  # 去噪
         data.append(extract_characters(image))
     data = np.array(data)
     result = rf.predict(data)
@@ -55,3 +58,4 @@ def predict_online(filepath):
 
 if __name__ == "__main__":
     predict_captcha()
+    # print(predict_online("CheckCode.jpg"))
